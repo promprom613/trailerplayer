@@ -1,10 +1,12 @@
 package com.prom3x209.trailerplayer
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -15,6 +17,36 @@ class MainActivity : Activity() {
 
     private var nextComponent: String? = null
     private var handedOff = false
+
+    class CropVideoView(context: Context) : VideoView(context) {
+        private var srcWidth = 0
+        private var srcHeight = 0
+
+        fun setSourceSize(width: Int, height: Int) {
+            srcWidth = width
+            srcHeight = height
+            requestLayout()
+        }
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            val parentWidth = MeasureSpec.getSize(widthMeasureSpec)
+            val parentHeight = MeasureSpec.getSize(heightMeasureSpec)
+
+            if (srcWidth <= 0 || srcHeight <= 0) {
+                setMeasuredDimension(parentWidth, parentHeight)
+                return
+            }
+
+            val scale = maxOf(
+                parentWidth.toFloat() / srcWidth,
+                parentHeight.toFloat() / srcHeight
+            )
+            setMeasuredDimension(
+                (srcWidth * scale).toInt(),
+                (srcHeight * scale).toInt()
+            )
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,9 +71,12 @@ class MainActivity : Activity() {
             return
         }
 
-        val videoView = VideoView(this)
+        val videoView = CropVideoView(this)
         videoView.setVideoURI(Uri.fromFile(java.io.File(path)))
 
+        videoView.setOnPreparedListener { mp ->
+            videoView.setSourceSize(mp.videoWidth, mp.videoHeight)
+        }
         videoView.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 handOffAndFinish()
@@ -55,8 +90,9 @@ class MainActivity : Activity() {
         root.addView(
             videoView,
             FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
             )
         )
         setContentView(root)
